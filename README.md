@@ -4,6 +4,8 @@
 
 This is a Julia package that provides a compiler and a codec for Protocol Buffers.
 
+**This fork applies several ad-hoc fixes (quick & dirty) to make some specific use case work. The related issues [#284](https://github.com/JuliaIO/ProtoBuf.jl/issues/284) and [#289](https://github.com/JuliaIO/ProtoBuf.jl/issues/289) should be solved thoroughly though.**
+
 [Protocol Buffers](https://developers.google.com/protocol-buffers) are a language-neutral, platform-neutral extensible mechanism for serializing structured data.
 
 ## Example

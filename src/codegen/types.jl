@@ -384,7 +384,13 @@ end
 function _ref_type_or_concrete_stub_or_param(type::Union{MessageType,ReferencedType}, ctx::Context, type_params::TypeParams)
     struct_name = ctx._toplevel_raw_name[] # must be set by the caller!
     appears_in_cycle = type.name in keys(ctx._types_and_oneofs_requiring_type_params)
-    is_self_referential = type.name == struct_name
+    # is_self_referential = type.name == struct_name # ORIGINAL
+    # Q&D FIX: Only consider it self-referential if it's the same type (same name AND same package namespace)
+    is_self_referential = if type isa ReferencedType
+        type.name == struct_name && isnothing(type.package_namespace)
+    else
+        type.name == struct_name
+    end
 
     if type.name in ctx._remaining_cyclic_defs # Cyclic reference that has not yet been defined
         # We need to specialize on the type of this field, either because the user requested

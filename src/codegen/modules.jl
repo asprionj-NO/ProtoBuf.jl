@@ -112,14 +112,16 @@ function generate_module_file(io::IO, m::ProtoModule, output_directory::Abstract
     if depth == 1
         # This is where we include external packages so they are available downstream
         for external_import in m.external_imports
-            println(io, "include(", repr(external_import), ')')
+            # println(io, "include(", repr(external_import), ')') # ORIGINAL. FIX:
+            println(io, reduce((str, spp) -> str*"\"$spp\",", splitpath(external_import), init="include(joinpath(")[1:end-1]*"))")
         end
         # This is where we include external dependencies that may not be packages.
         # We wrap them in a module to make sure that multiple downstream dependencies
         # can import them safely.
         for nonpkg_import in m.nonpkg_imports
             !options.always_use_modules && print(io, "module $(nonpkg_import)\n    ")
-            println(io, "include(", repr(joinpath("..", string(nonpkg_import, ".jl"))), ')')
+            # println(io, "include(", repr(joinpath("..", string(nonpkg_import, ".jl"))), ')') # ORIGINAL. FIX:
+            println(io, """include(joinpath("..", "$(string(nonpkg_import, ".jl"))"))""")
             !options.always_use_modules && println(io, "end")
         end
     else # depth > 1
@@ -155,30 +157,42 @@ function generate_module_file(io::IO, m::ProtoModule, output_directory::Abstract
         end
     end
     has_deps && println(io)
-    # Load in imported proto files that are defined in this package (the files ending with `_pb.jl`)
-    # In case there is a dependency of some of these files on a submodule, we include that submodule
-    # first.
-    seen = Set{String}()
-    for file in m.proto_files
-        for i in import_paths(file)
-            imported_file = parsed_files[i]
-            if length(namespace(file)) == length(namespace(imported_file)) - 1 && _startswith(namespace(file), namespace(imported_file))
-                submodule_name = last(namespace(imported_file))
-                get!(seen.dict, submodule_name) do
-                    println(io, "include(", repr(joinpath(submodule_name, string(submodule_name, ".jl"))), ")")
-                end
-            end
-        end
-        println(io, "include(", repr(proto_script_name(file)), ")")
-    end
-    # Load in submodules nested in this namespace (the modules ending with `PB`),
-    # that is, if we didn't include them above.
+    # ORIGINAL -----
+    # # Load in imported proto files that are defined in this package (the files ending with `_pb.jl`)
+    # # In case there is a dependency of some of these files on a submodule, we include that submodule
+    # # first.
+    # seen = Set{String}()
+    # for file in m.proto_files
+    #     for i in import_paths(file)
+    #         imported_file = parsed_files[i]
+    #         if length(namespace(file)) == length(namespace(imported_file)) - 1 && _startswith(namespace(file), namespace(imported_file))
+    #             submodule_name = last(namespace(imported_file))
+    #             get!(seen.dict, submodule_name) do
+    #                 println(io, "include(", repr(joinpath(submodule_name, string(submodule_name, ".jl"))), ")")
+    #             end
+    #         end
+    #     end
+    #     println(io, "include(", repr(proto_script_name(file)), ")")
+    # end
+    # # Load in submodules nested in this namespace (the modules ending with `PB`),
+    # # that is, if we didn't include them above.
+    # for submodule_namespace in submodule_namespaces
+    #     submodule = m.submodules[submodule_namespace]
+    #     get!(seen.dict, submodule.name) do
+    #         println(io, "include(", repr(joinpath(submodule.name, string(submodule.name, ".jl"))), ")")
+    #     end
+    # end
+    # FIX -----
+    # Load in submodules in topological order first
     for submodule_namespace in submodule_namespaces
         submodule = m.submodules[submodule_namespace]
-        get!(seen.dict, submodule.name) do
-            println(io, "include(", repr(joinpath(submodule.name, string(submodule.name, ".jl"))), ")")
-        end
+        println(io, """include(joinpath("$(submodule.name)", "$(submodule.name).jl"))""")
     end
+    # Then load in proto files that are defined in this package (the files ending with `_pb.jl`)
+    for file in m.proto_files
+        println(io, reduce((str, spp) -> str*"\"$spp\",", splitpath(proto_script_name(file)), init="include(joinpath(")[1:end-1]*"))")
+    end
+    # -----
     println(io)
     println(io, "end # module $(m.name)")
 end

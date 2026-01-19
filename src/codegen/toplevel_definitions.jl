@@ -223,12 +223,14 @@ function translate(io, rp::ResolvedProtoFile, file_map::Dict{String,ResolvedProt
             dependency = file_map[path]
             if !is_namespaced(dependency)
                 # if the dependency is also not namespaced, we can just include it
-                println(io, "include(", repr(proto_script_name(dependency)), ")")
+                # println(io, "include(", repr(proto_script_name(dependency)), ")") # ORIGINAL. FIX:
+                println(io, reduce((str, spp) -> str*"\"$spp\",", splitpath(proto_script_name(dependency)), init="include(joinpath(")[1:end-1]*"))")
                 options.always_use_modules && println(io, "import $(replace(proto_script_name(dependency), ".jl" => ""))")
             else
                 # otherwise we need to import it trough a module
                 import_pkg_name = namespaced_top_import(dependency)
-                println(io, "include(", repr(namespaced_top_include(dependency)), ")")
+                # println(io, "include(", repr(namespaced_top_include(dependency)), ")") # ORIGINAL. FIX:
+                println(io, reduce((str, spp) -> str*"\"$spp\",", splitpath(namespaced_top_include(dependency)), init="include(joinpath(")[1:end-1]*"))")
                 println(io, "import $(import_pkg_name)")
             end
         end
